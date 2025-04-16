@@ -4,10 +4,11 @@ import type { User, Company, Department, UserDepartment, CustomField, InventoryI
   InsertInventoryItem, InsertActivityLog } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import connectPg from "connect-pg-simple";
+import { EventEmitter } from "events";
 
 // Initialize Postgres client
 const queryClient = postgres(process.env.DATABASE_URL!);
@@ -16,14 +17,30 @@ export const db = drizzle(queryClient);
 // Session store
 const PostgresSessionStore = connectPg(session);
 // Create a minimal implementation that follows the pg Pool interface requirements
-const pgPool = {
-  query: queryClient,
-  connect: async () => ({}),
-  end: async () => ({}),
-  totalCount: 1,
-  idleCount: 1,
-  waitingCount: 0
-};
+class PgPoolAdapter extends EventEmitter {
+  query: typeof queryClient;
+  totalCount: number;
+  idleCount: number;
+  waitingCount: number;
+
+  constructor() {
+    super();
+    this.query = queryClient;
+    this.totalCount = 1;
+    this.idleCount = 1;
+    this.waitingCount = 0;
+  }
+
+  async connect() {
+    return {};
+  }
+
+  async end() {
+    return {};
+  }
+}
+
+const pgPool = new PgPoolAdapter();
 
 // Use memory store as fallback if database isn't available
 const MemoryStore = createMemoryStore(session);
@@ -152,9 +169,7 @@ export class MemStorage implements IStorage {
     // Create a default "General" department for this company
     await this.createDepartment({
       name: "General",
-      companyId: id,
-      assetCount: 0,
-      capacityUsed: 0
+      companyId: id
     });
     
     return company;
@@ -174,7 +189,13 @@ export class MemStorage implements IStorage {
   async createDepartment(departmentData: InsertDepartment): Promise<Department> {
     const id = this.departmentIdCounter++;
     const now = new Date();
-    const department: Department = { ...departmentData, id, createdAt: now };
+    const department: Department = { 
+      ...departmentData, 
+      id, 
+      createdAt: now,
+      assetCount: 0,
+      capacityUsed: 0
+    };
     this.departments.set(id, department);
     return department;
   }
@@ -396,9 +417,7 @@ export class DatabaseStorage implements IStorage {
     // Create a default "General" department for this company
     await this.createDepartment({
       name: "General",
-      companyId: company.id,
-      assetCount: 0,
-      capacityUsed: 0
+      companyId: company.id
     });
     
     return company;
@@ -415,7 +434,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDepartment(departmentData: InsertDepartment): Promise<Department> {
-    const [department] = await db.insert(departments).values(departmentData).returning();
+    // Make sure we include default values for assetCount and capacityUsed
+    const departmentWithDefaults = {
+      ...departmentData,
+      assetCount: 0,
+      capacityUsed: 0
+    };
+    
+    const [department] = await db.insert(departments).values(departmentWithDefaults).returning();
     return department;
   }
 
@@ -461,7 +487,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(customFields.companyId, companyId),
         // Checking for null using the is operator
-        SQL`${customFields.departmentId} is null`
+        sql`${customFields.departmentId} is null`
       ));
   }
 
