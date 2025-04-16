@@ -61,7 +61,7 @@ export default function InventoryForm() {
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventoryItemSchema),
     defaultValues: {
-      departmentId: 0,
+      departmentId: departments && departments.length > 0 ? departments[0].id : 0,
       name: "",
       description: "",
       quantity: 1,
@@ -71,6 +71,13 @@ export default function InventoryForm() {
       status: "active",
     },
   });
+  
+  // Update the form's department when departments are loaded
+  useEffect(() => {
+    if (departments && departments.length > 0) {
+      form.setValue("departmentId", departments[0].id);
+    }
+  }, [departments, form]);
   
   // Submit mutation for adding an item
   const addItemMutation = useMutation({
@@ -155,7 +162,7 @@ export default function InventoryForm() {
                     </FormControl>
                     <SelectContent>
                       {isDepartmentsLoading ? (
-                        <SelectItem value="" disabled>Loading departments...</SelectItem>
+                        <SelectItem value="loading" disabled>Loading departments...</SelectItem>
                       ) : departments && departments.length > 0 ? (
                         departments.map((dept) => (
                           <SelectItem key={dept.id} value={dept.id.toString()}>
@@ -163,7 +170,7 @@ export default function InventoryForm() {
                           </SelectItem>
                         ))
                       ) : (
-                        <SelectItem value="" disabled>No departments available</SelectItem>
+                        <SelectItem value="none" disabled>No departments available</SelectItem>
                       )}
                     </SelectContent>
                   </Select>

@@ -14,7 +14,7 @@
 
 @layer components {
   .sidebar-link {
-    @apply text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center px-2 py-2 text-sm font-medium rounded-md;
+    @apply text-white hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center px-2 py-2 text-sm font-medium rounded-md;
   }
 
   .sidebar-link-active {
