@@ -66,6 +66,14 @@ export default function AuthPage() {
   };
 
   const onRegisterSubmit = (data: RegisterFormValues) => {
+    // Make sure terms are accepted (this should be validated by the schema as well)
+    if (!data.terms) {
+      registerForm.setError("terms", { 
+        message: "You must accept the terms" 
+      });
+      return;
+    }
+
     registerMutation.mutate({
       email: data.email,
       password: data.password,
