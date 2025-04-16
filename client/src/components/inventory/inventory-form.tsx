@@ -56,38 +56,55 @@ const inventoryItemSchema = z.object({
 
 type InventoryFormValues = z.infer<typeof inventoryItemSchema>;
 
-export default function InventoryForm() {
+type InventoryFormProps = {
+  initialData?: InventoryItem;
+  isEditing?: boolean;
+};
+
+export default function InventoryForm({ initialData, isEditing = false }: InventoryFormProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [assetId, setAssetId] = useState("A-####");
+  const [, navigate] = useLocation();
+  const [assetId, setAssetId] = useState(initialData?.assetId || "A-####");
   
   // Fetch departments
   const { data: departments, isLoading: isDepartmentsLoading } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
   });
   
-  // Form setup
+  // Form setup - handle both creating new and editing existing items
   const form = useForm<InventoryFormValues>({
     resolver: zodResolver(inventoryItemSchema),
-    defaultValues: {
-      departmentId: departments && departments.length > 0 ? departments[0].id : 0,
-      name: "",
-      description: "",
-      quantity: 1,
-      unitPrice: null,
-      location: "",
-      purchaseDate: new Date(),
-      status: "active",
-    },
+    defaultValues: initialData 
+      ? {
+          departmentId: initialData.departmentId,
+          name: initialData.name,
+          description: initialData.description,
+          quantity: initialData.quantity,
+          unitPrice: initialData.unitPrice,
+          location: initialData.location,
+          purchaseDate: initialData.purchaseDate ? new Date(initialData.purchaseDate) : null,
+          status: initialData.status,
+        } 
+      : {
+          departmentId: departments && departments.length > 0 ? departments[0].id : 0,
+          name: "",
+          description: "",
+          quantity: 1,
+          unitPrice: null,
+          location: "",
+          purchaseDate: new Date(),
+          status: "active",
+        },
   });
   
-  // Update the form's department when departments are loaded
+  // Update the form's department when departments are loaded (only for new items)
   useEffect(() => {
-    if (departments && departments.length > 0) {
+    if (!initialData && departments && departments.length > 0) {
       form.setValue("departmentId", departments[0].id);
     }
-  }, [departments, form]);
+  }, [departments, form, initialData]);
   
   // Submit mutation for adding an item
   const addItemMutation = useMutation({
@@ -114,9 +131,42 @@ export default function InventoryForm() {
     },
   });
   
+  // Submit mutation for updating an item
+  const updateItemMutation = useMutation({
+    mutationFn: async (values: InventoryFormValues) => {
+      if (!initialData?.id) throw new Error("Item ID is required for updating");
+      const res = await apiRequest("PUT", `/api/inventory/${initialData.id}`, values);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Item updated",
+        description: "The inventory item has been updated successfully.",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      
+      // Redirect back to inventory list after updating
+      navigate("/inventory");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update item",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
   // Form submission handlers
   const onSubmit = (values: InventoryFormValues) => {
-    addItemMutation.mutate(values);
+    if (isEditing && initialData) {
+      updateItemMutation.mutate(values);
+    } else {
+      addItemMutation.mutate(values);
+    }
   };
   
   const onSubmitAndClear = (values: InventoryFormValues) => {
@@ -136,7 +186,9 @@ export default function InventoryForm() {
   return (
     <Card>
       <CardContent className="px-4 py-5 sm:p-6">
-        <h2 className="text-lg font-medium text-slate-900 dark:text-white mb-6">New Inventory Item</h2>
+        <h2 className="text-lg font-medium text-slate-900 dark:text-white mb-6">
+          {isEditing ? `Edit Inventory Item: ${initialData?.name}` : "New Inventory Item"}
+        </h2>
         
         <Form {...form}>
           <form className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -363,40 +415,55 @@ export default function InventoryForm() {
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => form.reset()}
+                onClick={() => isEditing ? navigate("/inventory") : form.reset()}
               >
-                Cancel
+                {isEditing ? "Back" : "Cancel"}
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={addItemMutation.isPending || !form.formState.isValid}
-                onClick={() => {
-                  const values = form.getValues();
-                  onSubmitAndClear(values);
-                }}
-              >
-                {addItemMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add & Clear Form"
-                )}
-              </Button>
+              
+              {!isEditing && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={addItemMutation.isPending || !form.formState.isValid}
+                  onClick={() => {
+                    const values = form.getValues();
+                    onSubmitAndClear(values);
+                  }}
+                >
+                  {addItemMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add & Clear Form"
+                  )}
+                </Button>
+              )}
+              
               <Button 
                 type="button" 
-                disabled={addItemMutation.isPending || !form.formState.isValid}
+                disabled={(isEditing ? updateItemMutation.isPending : addItemMutation.isPending) || !form.formState.isValid}
                 onClick={form.handleSubmit(onSubmit)}
               >
-                {addItemMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
+                {isEditing ? (
+                  updateItemMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Item"
+                  )
                 ) : (
-                  "Add Item"
+                  addItemMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Item"
+                  )
                 )}
               </Button>
             </div>

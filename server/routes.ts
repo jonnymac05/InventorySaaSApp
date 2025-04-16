@@ -89,6 +89,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Server error" });
     }
   });
+  
+  app.get("/api/inventory/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const user = req.user!;
+      const itemId = parseInt(req.params.id);
+      
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "Invalid item ID" });
+      }
+      
+      const item = await storage.getInventoryItem(itemId);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Security check: ensure item belongs to user's company
+      if (item.companyId !== user.companyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(item);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
 
   app.post("/api/inventory", requireAuth, async (req: AuthRequest, res) => {
     try {
