@@ -426,8 +426,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Department methods
-  async getDepartment(id: number): Promise<Department | undefined> {
-    const result = await db.select().from(departments).where(eq(departments.id, id));
+  async getDepartment(id: number, companyId?: number): Promise<Department | undefined> {
+    // If companyId is provided, filter by both id and companyId
+    let query = db.select().from(departments);
+    
+    if (companyId !== undefined) {
+      query = query.where(and(
+        eq(departments.id, id),
+        eq(departments.companyId, companyId)
+      ));
+    } else {
+      query = query.where(eq(departments.id, id));
+    }
+    
+    const result = await query;
     return result[0];
   }
 
