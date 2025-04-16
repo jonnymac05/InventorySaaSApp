@@ -507,9 +507,7 @@ export class DatabaseStorage implements IStorage {
       status: itemData.status || "active",
       description: itemData.description || null,
       customFields: itemData.customFields || null,
-      location: itemData.location || null,
-      category: itemData.category || null,
-      tags: itemData.tags || null
+      location: itemData.location || null
     };
     
     const [item] = await db.insert(inventoryItems).values(itemWithDefaults).returning();
