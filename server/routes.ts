@@ -107,12 +107,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const itemData = insertInventoryItemSchema.parse({
+      // Convert purchase date string to Date object if it exists
+      const formData = {
         ...req.body,
         companyId: user.companyId,
         createdBy: user.id,
-        updatedBy: user.id
-      });
+        updatedBy: user.id,
+        // Convert ISO date string to Date object
+        purchaseDate: req.body.purchaseDate ? new Date(req.body.purchaseDate) : null
+      };
+      
+      const itemData = insertInventoryItemSchema.parse(formData);
       
       const item = await storage.createInventoryItem(itemData);
       
@@ -162,10 +167,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updatedItem = await storage.updateInventoryItem(itemId, {
+      // Handle date conversion
+      const updateData = {
         ...req.body,
-        updatedBy: user.id
-      });
+        updatedBy: user.id,
+        // Convert purchase date string to Date object if provided
+        purchaseDate: req.body.purchaseDate ? new Date(req.body.purchaseDate) : undefined
+      };
+      
+      const updatedItem = await storage.updateInventoryItem(itemId, updateData);
       
       // Create activity log
       await storage.createActivityLog({
