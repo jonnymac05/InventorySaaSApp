@@ -11,7 +11,7 @@ import connectPg from "connect-pg-simple";
 import { EventEmitter } from "events";
 
 // Initialize Postgres client
-const queryClient = postgres(process.env.DATABASE_URL!);
+const queryClient = postgres(process.env.DATABASE_URL!, { prepare: false });
 export const db = drizzle(queryClient);
 
 // Session store
@@ -393,8 +393,8 @@ export class DatabaseStorage implements IStorage {
       email: userData.email.toLowerCase() // Store email in lowercase for consistency
     };
     
-    const [user] = await db.insert(users).values(userWithRole).returning();
-    return user;
+    const result = await db.insert(users).values(userWithRole).returning();
+    return result[0];
   }
 
   // Company methods
@@ -412,7 +412,8 @@ export class DatabaseStorage implements IStorage {
       currentAssetId: 1
     };
     
-    const [company] = await db.insert(companies).values(companyWithDefaults).returning();
+    const result = await db.insert(companies).values(companyWithDefaults).returning();
+    const company = result[0];
     
     // Create a default "General" department for this company
     await this.createDepartment({
@@ -441,22 +442,22 @@ export class DatabaseStorage implements IStorage {
       capacityUsed: 0
     };
     
-    const [department] = await db.insert(departments).values(departmentWithDefaults).returning();
-    return department;
+    const result = await db.insert(departments).values(departmentWithDefaults).returning();
+    return result[0];
   }
 
   async updateDepartment(id: number, data: Partial<Department>): Promise<Department> {
-    const [department] = await db
+    const result = await db
       .update(departments)
       .set(data)
       .where(eq(departments.id, id))
       .returning();
     
-    if (!department) {
+    if (!result[0]) {
       throw new Error(`Department with id ${id} not found`);
     }
     
-    return department;
+    return result[0];
   }
 
   // User-Department methods
