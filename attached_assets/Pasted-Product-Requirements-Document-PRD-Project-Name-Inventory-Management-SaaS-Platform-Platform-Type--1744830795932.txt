@@ -1,0 +1,120 @@
+Product Requirements Document (PRD)
+Project Name: Inventory Management SaaS Platform
+Platform Type: Web-based SaaS
+UI Framework Requirement: Must use ShadCN
+Environment Compatibility: Must be runnable on both Linux and Windows environments
+
+1. User & Company Management
+User Roles:
+
+Admin: Can manage the company account and invite employees.
+
+Employee: Can view/manage inventory based on department permissions.
+
+Authentication Features:
+
+Email-based sign-up/login
+
+Password reset and recovery via email
+
+Email onboarding for newly added employees
+
+Company Onboarding:
+
+Unique company profile creation
+
+Admin creates and customizes initial settings (asset ID patterns, default fields, etc.)
+
+2. Data Isolation (Multi-Tenant Architecture)
+Tenant Partitioning:
+
+Each company’s data should be fully isolated via unique identifiers (e.g., UUID, subdomain, or partition keys)
+
+No cross-company visibility or access
+
+All queries must be scoped to the authenticated user’s company context
+
+3. Department & Group Hierarchy
+Structure:
+
+Companies can create multiple Departments
+
+Employees can be assigned to one or more Departments
+
+Inventory visibility is scoped to a user’s departments
+
+A “General” department allows access to global inventory within the company
+
+4. Custom Asset ID System
+Auto-generated Identifiers:
+
+Asset IDs should be auto-incremented based on a customizable pattern defined at onboarding
+
+Example patterns: A-#### or ####-B
+
+Categories may have unique prefixes/suffixes
+
+Support for editable ID format templates
+
+5. Subscription and Billing
+Tiered Pricing Model:
+
+Based on number of employees
+
+Monthly and annual subscription options
+
+Feature-based tiering (e.g., custom fields, photo uploads)
+
+Payment Gateway Integration:
+
+Stripe support for subscription management, invoices, and payment processing
+
+Admin dashboard for managing billing info and invoices
+
+6. Data Import/Export
+CSV/Excel support for bulk import and export
+
+Admin-only feature
+
+Data mapping UI to align external column headers with internal fields
+
+7. Custom Fields & Inventory Schema
+Default Fields:
+
+Quantity, Description, Photo, etc.
+
+Field Customization:
+
+Companies can define new custom fields (e.g., VIN#, Expiration Date)
+
+Departments can override with department-specific field sets
+
+Fields can be required/optional, visible/hidden, or tier-restricted
+
+8. Quick Entry UX
+Two Primary Options:
+
+Add New and Clear: Submits form and resets it
+
+Add New: Submits form but retains current values
+
+Batch Entry Friendly:
+
+Fast keyboard navigation
+
+Support for cloning previous entry with minor field edits
+
+Image preview if photos are enabled
+
+Technical Requirements
+Cross-Platform Deployment:
+
+Should run via Docker or cross-platform runtime
+
+CLI setup or installer that supports both Linux and Windows
+
+Responsive UI:
+
+Built with ShadCN and Tailwind
+
+Mobile-friendly views for scanning inventory
