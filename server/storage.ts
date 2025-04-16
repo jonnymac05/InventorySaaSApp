@@ -32,7 +32,7 @@ export interface IStorage {
   createCompany(company: InsertCompany): Promise<Company>;
   
   // Department methods
-  getDepartment(id: number): Promise<Department | undefined>;
+  getDepartment(id: number, companyId?: number): Promise<Department | undefined>;
   getDepartmentsByCompany(companyId: number): Promise<Department[]>;
   createDepartment(department: InsertDepartment): Promise<Department>;
   updateDepartment(id: number, data: Partial<Department>): Promise<Department>;
@@ -157,8 +157,15 @@ export class MemStorage implements IStorage {
   }
   
   // Department methods
-  async getDepartment(id: number): Promise<Department | undefined> {
-    return this.departments.get(id);
+  async getDepartment(id: number, companyId?: number): Promise<Department | undefined> {
+    const department = this.departments.get(id);
+    
+    // If companyId is provided, verify department belongs to that company
+    if (department && companyId !== undefined && department.companyId !== companyId) {
+      return undefined;
+    }
+    
+    return department;
   }
   
   async getDepartmentsByCompany(companyId: number): Promise<Department[]> {

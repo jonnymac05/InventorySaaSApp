@@ -41,7 +41,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/departments", requireAuth, async (req: AuthRequest, res) => {
     try {
       const user = req.user!;
+      console.log(`Getting departments for company ID: ${user.companyId}, user: ${user.email}`);
       const departments = await storage.getDepartmentsByCompany(user.companyId);
+      console.log(`Found ${departments.length} departments:`, departments.map(d => `${d.id}:${d.name}:${d.companyId}`));
       res.json(departments);
     } catch (error) {
       console.error(error);
@@ -127,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemId: item.id,
         assetId: item.assetId,
         itemName: item.name,
-        departmentName: (await storage.getDepartment(item.departmentId))?.name || "Unknown",
+        departmentName: (await storage.getDepartment(item.departmentId, user.companyId))?.name || "Unknown",
         userId: user.id,
         userName: user.name,
         companyId: user.companyId
@@ -183,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         itemId: updatedItem.id,
         assetId: updatedItem.assetId,
         itemName: updatedItem.name,
-        departmentName: (await storage.getDepartment(updatedItem.departmentId))?.name || "Unknown",
+        departmentName: (await storage.getDepartment(updatedItem.departmentId, user.companyId))?.name || "Unknown",
         userId: user.id,
         userName: user.name,
         companyId: user.companyId
@@ -218,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Save item info before deletion
       const itemName = existingItem.name;
-      const departmentName = (await storage.getDepartment(existingItem.departmentId))?.name || "Unknown";
+      const departmentName = (await storage.getDepartment(existingItem.departmentId, user.companyId))?.name || "Unknown";
       const assetId = existingItem.assetId;
       
       // Delete the item
