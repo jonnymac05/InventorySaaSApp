@@ -100,7 +100,7 @@ export default function InventoryListPage() {
   const filteredItems = inventoryItems
     ? inventoryItems.filter(item => {
         // Apply status filter
-        if (statusFilter && item.status !== statusFilter) return false;
+        if (statusFilter && statusFilter !== "all" && item.status !== statusFilter) return false;
         
         // Apply department filter
         if (departmentFilter !== 0 && item.departmentId !== departmentFilter) return false;
@@ -181,7 +181,7 @@ export default function InventoryListPage() {
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="active">In Stock</SelectItem>
                   <SelectItem value="low">Low Stock</SelectItem>
                   <SelectItem value="ordered">On Order</SelectItem>

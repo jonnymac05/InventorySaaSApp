@@ -36,12 +36,21 @@ import { Loader2, ImagePlus } from "lucide-react";
 const inventoryItemSchema = z.object({
   departmentId: z.coerce.number().min(1, { message: "Department is required" }),
   name: z.string().min(2, { message: "Item name must be at least 2 characters" }),
-  description: z.string().optional(),
-  quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1" }),
-  unitPrice: z.coerce.number().min(0, { message: "Unit price must be non-negative" }).optional(),
-  location: z.string().optional(),
-  purchaseDate: z.string().optional(),
-  status: z.string().optional(),
+  description: z.string().nullable().optional(),
+  quantity: z.coerce.number().int().min(1, { message: "Quantity must be at least 1" }),
+  unitPrice: z.coerce.number().int().min(0, { message: "Unit price must be non-negative" }).nullable().optional(),
+  location: z.string().nullable().optional(),
+  purchaseDate: z.preprocess(
+    (arg) => {
+      if (typeof arg === 'string') {
+        // Convert from string date to Date object
+        return new Date(arg);
+      }
+      return arg;
+    },
+    z.date().nullable().optional()
+  ),
+  status: z.enum(["active", "low", "ordered", "discontinued"]).default("active"),
 });
 
 type InventoryFormValues = z.infer<typeof inventoryItemSchema>;
@@ -247,10 +256,12 @@ export default function InventoryForm() {
                         step="0.01"
                         placeholder="0.00"
                         className="pl-7"
-                        value={field.value}
+                        value={field.value ? field.value / 100 : ''}
                         onChange={(e) => {
-                          const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                          field.onChange(value);
+                          const valueInDollars = e.target.value ? parseFloat(e.target.value) : undefined;
+                          // Convert to cents for database storage (integer)
+                          const valueInCents = valueInDollars ? Math.round(valueInDollars * 100) : null;
+                          field.onChange(valueInCents);
                         }}
                       />
                     </div>
