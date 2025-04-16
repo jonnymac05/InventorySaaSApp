@@ -66,14 +66,7 @@ export default function AuthPage() {
   };
 
   const onRegisterSubmit = (data: RegisterFormValues) => {
-    // Make sure terms are accepted (this should be validated by the schema as well)
-    if (!data.terms) {
-      registerForm.setError("terms", { 
-        message: "You must accept the terms" 
-      });
-      return;
-    }
-
+    // The schema already validates that terms are accepted, no need for additional check
     registerMutation.mutate({
       email: data.email,
       password: data.password,
@@ -142,7 +135,10 @@ export default function AuthPage() {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="remember"
-                      {...loginForm.register("rememberMe")}
+                      checked={loginForm.watch("rememberMe")}
+                      onCheckedChange={(checked) => {
+                        loginForm.setValue("rememberMe", checked === true);
+                      }}
                     />
                     <Label htmlFor="remember" className="text-sm text-slate-600 dark:text-slate-400">
                       Remember me
@@ -262,7 +258,10 @@ export default function AuthPage() {
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="terms"
-                      {...registerForm.register("terms")}
+                      checked={registerForm.watch("terms")}
+                      onCheckedChange={(checked) => {
+                        registerForm.setValue("terms", checked === true, { shouldValidate: true });
+                      }}
                     />
                     <Label htmlFor="terms" className="text-sm text-slate-600 dark:text-slate-400">
                       I agree to the <a href="#" className="text-blue-600 dark:text-blue-500 hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 dark:text-blue-500 hover:underline">Privacy Policy</a>
