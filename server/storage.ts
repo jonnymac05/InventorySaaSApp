@@ -4,13 +4,34 @@ import type { User, Company, Department, UserDepartment, CustomField, InventoryI
   InsertInventoryItem, InsertActivityLog } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import { eq, and, desc } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import connectPg from "connect-pg-simple";
 
+// Initialize Postgres client
+const queryClient = postgres(process.env.DATABASE_URL!);
+export const db = drizzle(queryClient);
+
+// Session store
+const PostgresSessionStore = connectPg(session);
+// Create a minimal implementation that follows the pg Pool interface requirements
+const pgPool = {
+  query: queryClient,
+  connect: async () => ({}),
+  end: async () => ({}),
+  totalCount: 1,
+  idleCount: 1,
+  waitingCount: 0
+};
+
+// Use memory store as fallback if database isn't available
 const MemoryStore = createMemoryStore(session);
 
 // Storage interface
 export interface IStorage {
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
   
   // User methods
   getUser(id: number): Promise<User | undefined>;
@@ -61,7 +82,7 @@ export class MemStorage implements IStorage {
   private inventoryItems: Map<number, InventoryItem>;
   private activityLogs: Map<number, ActivityLog>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
   
   private userIdCounter: number;
   private companyIdCounter: number;
@@ -321,4 +342,247 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool: pgPool,
+      createTableIfMissing: true
+    });
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.id, id));
+    return result[0];
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    return result[0];
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    // Ensure role is always set
+    const userWithRole = {
+      ...userData,
+      role: userData.role || "employee", // Default to employee if role not specified
+      email: userData.email.toLowerCase() // Store email in lowercase for consistency
+    };
+    
+    const [user] = await db.insert(users).values(userWithRole).returning();
+    return user;
+  }
+
+  // Company methods
+  async getCompany(id: number): Promise<Company | undefined> {
+    const result = await db.select().from(companies).where(eq(companies.id, id));
+    return result[0];
+  }
+
+  async createCompany(companyData: InsertCompany): Promise<Company> {
+    const companyWithDefaults = {
+      ...companyData,
+      assetIdPattern: companyData.assetIdPattern || "A-####",
+      subscriptionTier: companyData.subscriptionTier || "free",
+      subscriptionStatus: companyData.subscriptionStatus || "active",
+      currentAssetId: 1
+    };
+    
+    const [company] = await db.insert(companies).values(companyWithDefaults).returning();
+    
+    // Create a default "General" department for this company
+    await this.createDepartment({
+      name: "General",
+      companyId: company.id,
+      assetCount: 0,
+      capacityUsed: 0
+    });
+    
+    return company;
+  }
+
+  // Department methods
+  async getDepartment(id: number): Promise<Department | undefined> {
+    const result = await db.select().from(departments).where(eq(departments.id, id));
+    return result[0];
+  }
+
+  async getDepartmentsByCompany(companyId: number): Promise<Department[]> {
+    return await db.select().from(departments).where(eq(departments.companyId, companyId));
+  }
+
+  async createDepartment(departmentData: InsertDepartment): Promise<Department> {
+    const [department] = await db.insert(departments).values(departmentData).returning();
+    return department;
+  }
+
+  async updateDepartment(id: number, data: Partial<Department>): Promise<Department> {
+    const [department] = await db
+      .update(departments)
+      .set(data)
+      .where(eq(departments.id, id))
+      .returning();
+    
+    if (!department) {
+      throw new Error(`Department with id ${id} not found`);
+    }
+    
+    return department;
+  }
+
+  // User-Department methods
+  async assignUserToDepartment(data: InsertUserDepartment): Promise<UserDepartment> {
+    const [userDept] = await db.insert(userDepartments).values(data).returning();
+    return userDept;
+  }
+
+  async getUserDepartments(userId: number): Promise<UserDepartment[]> {
+    return await db.select().from(userDepartments).where(eq(userDepartments.userId, userId));
+  }
+
+  // Custom fields methods
+  async createCustomField(fieldData: InsertCustomField): Promise<CustomField> {
+    const fieldWithDefaults = {
+      ...fieldData,
+      options: fieldData.options || null,
+      required: fieldData.required !== undefined ? fieldData.required : false,
+      departmentId: fieldData.departmentId || null
+    };
+    
+    const [field] = await db.insert(customFields).values(fieldWithDefaults).returning();
+    return field;
+  }
+
+  async getCustomFieldsByCompany(companyId: number): Promise<CustomField[]> {
+    return await db.select().from(customFields)
+      .where(and(
+        eq(customFields.companyId, companyId),
+        // Checking for null using the is operator
+        SQL`${customFields.departmentId} is null`
+      ));
+  }
+
+  async getCustomFieldsByDepartment(departmentId: number): Promise<CustomField[]> {
+    return await db.select().from(customFields)
+      .where(eq(customFields.departmentId, departmentId));
+  }
+
+  // Inventory items methods
+  async createInventoryItem(itemData: InsertInventoryItem): Promise<InventoryItem> {
+    // Generate asset ID
+    const assetId = await this.generateAssetId(itemData.companyId);
+    
+    const itemWithDefaults = {
+      ...itemData,
+      assetId,
+      status: itemData.status || "active",
+      description: itemData.description || null,
+      customFields: itemData.customFields || null,
+      location: itemData.location || null,
+      category: itemData.category || null,
+      tags: itemData.tags || null
+    };
+    
+    const [item] = await db.insert(inventoryItems).values(itemWithDefaults).returning();
+    
+    // Update department asset count
+    const department = await this.getDepartment(itemData.departmentId);
+    if (department) {
+      await this.updateDepartment(department.id, {
+        assetCount: department.assetCount + 1,
+        capacityUsed: department.capacityUsed + 10 // Simplified capacity calculation
+      });
+    }
+    
+    return item;
+  }
+
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    const result = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    return result[0];
+  }
+
+  async getInventoryItemsByCompany(companyId: number): Promise<InventoryItem[]> {
+    return await db.select().from(inventoryItems).where(eq(inventoryItems.companyId, companyId));
+  }
+
+  async getInventoryItemsByDepartment(departmentId: number): Promise<InventoryItem[]> {
+    return await db.select().from(inventoryItems).where(eq(inventoryItems.departmentId, departmentId));
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem> {
+    const [item] = await db
+      .update(inventoryItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    
+    if (!item) {
+      throw new Error(`Inventory item with id ${id} not found`);
+    }
+    
+    return item;
+  }
+
+  async deleteInventoryItem(id: number): Promise<void> {
+    const item = await this.getInventoryItem(id);
+    if (!item) {
+      throw new Error(`Inventory item with id ${id} not found`);
+    }
+    
+    // Update department asset count
+    const department = await this.getDepartment(item.departmentId);
+    if (department) {
+      await this.updateDepartment(department.id, {
+        assetCount: Math.max(0, department.assetCount - 1),
+        capacityUsed: Math.max(0, department.capacityUsed - 10) // Simplified capacity calculation
+      });
+    }
+    
+    await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
+  }
+
+  // Activity log methods
+  async createActivityLog(logData: InsertActivityLog): Promise<ActivityLog> {
+    const [log] = await db.insert(activityLogs).values(logData).returning();
+    return log;
+  }
+
+  async getActivityLogsByCompany(companyId: number, limit = 10): Promise<ActivityLog[]> {
+    return await db.select().from(activityLogs)
+      .where(eq(activityLogs.companyId, companyId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+  }
+
+  // Asset ID generation
+  async generateAssetId(companyId: number): Promise<string> {
+    const company = await this.getCompany(companyId);
+    if (!company) {
+      throw new Error(`Company with id ${companyId} not found`);
+    }
+    
+    const pattern = company.assetIdPattern;
+    const currentId = company.currentAssetId;
+    
+    // Generate the asset ID
+    const assetId = pattern.replace(/#+/g, (match) => {
+      const paddingLength = match.length;
+      return currentId.toString().padStart(paddingLength, '0');
+    });
+    
+    // Update company's current asset ID
+    await db
+      .update(companies)
+      .set({ currentAssetId: currentId + 1 })
+      .where(eq(companies.id, companyId));
+    
+    return assetId;
+  }
+}
+
+// Use the database storage implementation
+export const storage = new DatabaseStorage();
