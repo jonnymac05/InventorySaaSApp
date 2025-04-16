@@ -74,9 +74,9 @@ export default function InventoryForm() {
       name: "",
       description: "",
       quantity: 1,
-      unitPrice: undefined,
+      unitPrice: null,
       location: "",
-      purchaseDate: new Date().toISOString().split('T')[0],
+      purchaseDate: new Date(),
       status: "active",
     },
   });
@@ -125,9 +125,9 @@ export default function InventoryForm() {
       name: "",
       description: "",
       quantity: 1,
-      unitPrice: undefined,
+      unitPrice: null,
       location: "",
-      purchaseDate: new Date().toISOString().split('T')[0],
+      purchaseDate: new Date(),
       status: "active",
     });
   };
@@ -212,7 +212,10 @@ export default function InventoryForm() {
                     <Textarea 
                       placeholder="Enter item description" 
                       rows={3}
-                      {...field} 
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
                     />
                   </FormControl>
                   <FormMessage />
@@ -278,7 +281,13 @@ export default function InventoryForm() {
                 <FormItem className="sm:col-span-2">
                   <FormLabel>Location</FormLabel>
                   <FormControl>
-                    <Input placeholder="Storage location" {...field} />
+                    <Input 
+                      placeholder="Storage location" 
+                      value={field.value || ''}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -292,7 +301,13 @@ export default function InventoryForm() {
                 <FormItem className="sm:col-span-3">
                   <FormLabel>Purchase Date</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input 
+                      type="date" 
+                      value={field.value ? field.value.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        field.onChange(e.target.value ? new Date(e.target.value) : null);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

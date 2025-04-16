@@ -117,7 +117,13 @@ export class MemStorage implements IStorage {
   async createUser(userData: InsertUser): Promise<User> {
     const id = this.userIdCounter++;
     const now = new Date();
-    const user: User = { ...userData, id, createdAt: now };
+    // Ensure all required fields are present
+    const user: User = { 
+      ...userData, 
+      id, 
+      createdAt: now,
+      role: userData.role || "employee" // Set default if missing
+    };
     this.users.set(id, user);
     return user;
   }
@@ -134,7 +140,10 @@ export class MemStorage implements IStorage {
       ...companyData, 
       id, 
       currentAssetId: 1,
-      createdAt: now 
+      createdAt: now,
+      assetIdPattern: companyData.assetIdPattern || "A-####",
+      subscriptionTier: companyData.subscriptionTier || "free",
+      subscriptionStatus: companyData.subscriptionStatus || "active"
     };
     this.companies.set(id, company);
     
@@ -202,7 +211,14 @@ export class MemStorage implements IStorage {
   async createCustomField(fieldData: InsertCustomField): Promise<CustomField> {
     const id = this.customFieldIdCounter++;
     const now = new Date();
-    const customField: CustomField = { ...fieldData, id, createdAt: now };
+    const customField: CustomField = { 
+      ...fieldData, 
+      id, 
+      createdAt: now,
+      options: fieldData.options || null,
+      required: fieldData.required !== undefined ? fieldData.required : false,
+      departmentId: fieldData.departmentId || null
+    };
     this.customFields.set(id, customField);
     return customField;
   }
@@ -231,6 +247,12 @@ export class MemStorage implements IStorage {
       ...itemData, 
       id, 
       assetId,
+      status: itemData.status || "active",
+      description: itemData.description || null,
+      location: itemData.location || null,
+      customFields: itemData.customFields || null,
+      unitPrice: itemData.unitPrice || null,
+      purchaseDate: itemData.purchaseDate || null,
       createdAt: now,
       updatedAt: now
     };
