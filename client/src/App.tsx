@@ -4,6 +4,7 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
 import InventoryAddPage from "@/pages/inventory-add-page";
+import InventoryEditPage from "@/pages/inventory-edit-page";
 import InventoryListPage from "@/pages/inventory-list-page";
 import DepartmentsPage from "@/pages/departments-page";
 import UserManagementPage from "@/pages/user-management-page";
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/" component={DashboardPage} />
       <ProtectedRoute path="/inventory/add" component={InventoryAddPage} />
+      <ProtectedRoute path="/inventory/edit/:id" component={InventoryEditPage} />
       <ProtectedRoute path="/inventory" component={InventoryListPage} />
       <ProtectedRoute path="/departments" component={DepartmentsPage} />
       <ProtectedRoute path="/users" component={UserManagementPage} />

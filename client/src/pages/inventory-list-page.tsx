@@ -278,8 +278,10 @@ export default function InventoryListPage() {
                       {format(new Date(item.createdAt), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
-                      <Button variant="ghost" size="icon">
-                        <Pencil className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link href={`/inventory/edit/${item.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Link>
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
