@@ -267,7 +267,7 @@ export class MemStorage implements IStorage {
     this.inventoryItems.set(id, inventoryItem);
     
     // Update department asset count
-    const department = await this.getDepartment(itemData.departmentId);
+    const department = await this.getDepartment(itemData.departmentId, itemData.companyId);
     if (department) {
       await this.updateDepartment(department.id, {
         assetCount: department.assetCount + 1,
@@ -313,7 +313,7 @@ export class MemStorage implements IStorage {
     }
     
     // Update department asset count
-    const department = await this.getDepartment(item.departmentId);
+    const department = await this.getDepartment(item.departmentId, item.companyId);
     if (department) {
       await this.updateDepartment(department.id, {
         assetCount: Math.max(0, department.assetCount - 1),
@@ -528,7 +528,7 @@ export class DatabaseStorage implements IStorage {
     const item = result[0];
     
     // Update department asset count
-    const department = await this.getDepartment(itemData.departmentId);
+    const department = await this.getDepartment(itemData.departmentId, itemData.companyId);
     if (department) {
       await this.updateDepartment(department.id, {
         assetCount: department.assetCount + 1,
@@ -573,7 +573,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Update department asset count
-    const department = await this.getDepartment(item.departmentId);
+    const department = await this.getDepartment(item.departmentId, item.companyId);
     if (department) {
       await this.updateDepartment(department.id, {
         assetCount: Math.max(0, department.assetCount - 1),
