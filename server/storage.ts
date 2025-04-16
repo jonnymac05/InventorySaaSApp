@@ -462,8 +462,8 @@ export class DatabaseStorage implements IStorage {
 
   // User-Department methods
   async assignUserToDepartment(data: InsertUserDepartment): Promise<UserDepartment> {
-    const [userDept] = await db.insert(userDepartments).values(data).returning();
-    return userDept;
+    const result = await db.insert(userDepartments).values(data).returning();
+    return result[0];
   }
 
   async getUserDepartments(userId: number): Promise<UserDepartment[]> {
@@ -479,8 +479,8 @@ export class DatabaseStorage implements IStorage {
       departmentId: fieldData.departmentId || null
     };
     
-    const [field] = await db.insert(customFields).values(fieldWithDefaults).returning();
-    return field;
+    const result = await db.insert(customFields).values(fieldWithDefaults).returning();
+    return result[0];
   }
 
   async getCustomFieldsByCompany(companyId: number): Promise<CustomField[]> {
@@ -511,7 +511,8 @@ export class DatabaseStorage implements IStorage {
       location: itemData.location || null
     };
     
-    const [item] = await db.insert(inventoryItems).values(itemWithDefaults).returning();
+    const result = await db.insert(inventoryItems).values(itemWithDefaults).returning();
+    const item = result[0];
     
     // Update department asset count
     const department = await this.getDepartment(itemData.departmentId);
@@ -539,17 +540,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem> {
-    const [item] = await db
+    const result = await db
       .update(inventoryItems)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(inventoryItems.id, id))
       .returning();
     
-    if (!item) {
+    if (!result[0]) {
       throw new Error(`Inventory item with id ${id} not found`);
     }
     
-    return item;
+    return result[0];
   }
 
   async deleteInventoryItem(id: number): Promise<void> {
@@ -572,8 +573,8 @@ export class DatabaseStorage implements IStorage {
 
   // Activity log methods
   async createActivityLog(logData: InsertActivityLog): Promise<ActivityLog> {
-    const [log] = await db.insert(activityLogs).values(logData).returning();
-    return log;
+    const result = await db.insert(activityLogs).values(logData).returning();
+    return result[0];
   }
 
   async getActivityLogsByCompany(companyId: number, limit = 10): Promise<ActivityLog[]> {
