@@ -5,42 +5,14 @@ import type { User, Company, Department, UserDepartment, CustomField, InventoryI
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import connectPg from "connect-pg-simple";
 import { EventEmitter } from "events";
-
-// Initialize Postgres client
-const queryClient = postgres(process.env.DATABASE_URL!, { prepare: false });
-export const db = drizzle(queryClient);
+import { db, pool } from "./db";
 
 // Session store
 const PostgresSessionStore = connectPg(session);
-// Create a minimal implementation that follows the pg Pool interface requirements
-class PgPoolAdapter extends EventEmitter {
-  query: typeof queryClient;
-  totalCount: number;
-  idleCount: number;
-  waitingCount: number;
-
-  constructor() {
-    super();
-    this.query = queryClient;
-    this.totalCount = 1;
-    this.idleCount = 1;
-    this.waitingCount = 0;
-  }
-
-  async connect() {
-    return {};
-  }
-
-  async end() {
-    return {};
-  }
-}
-
-const pgPool = new PgPoolAdapter();
+// Use the pool directly from db.ts
+const pgPool = pool;
 
 // Use memory store as fallback if database isn't available
 const MemoryStore = createMemoryStore(session);
